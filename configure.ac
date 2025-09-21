@@ -55,6 +55,10 @@ darwin*)
    my_htop_platform=darwin
    AC_DEFINE([HTOP_DARWIN], [], [Building for Darwin.])
    ;;
+redox*)
+   my_htop_platform=redox
+   AC_DEFINE([HTOP_REDOX], [], [Building for Redox.])
+   ;;
 solaris*)
    my_htop_platform=solaris
    AC_DEFINE([HTOP_SOLARIS], [], [Building for Solaris.])
@@ -1276,6 +1280,7 @@ AM_CONDITIONAL([HTOP_DRAGONFLYBSD], [test "$my_htop_platform" = dragonflybsd])
 AM_CONDITIONAL([HTOP_NETBSD], [test "$my_htop_platform" = netbsd])
 AM_CONDITIONAL([HTOP_OPENBSD], [test "$my_htop_platform" = openbsd])
 AM_CONDITIONAL([HTOP_DARWIN], [test "$my_htop_platform" = darwin])
+AM_CONDITIONAL([HTOP_REDOX], [test "$my_htop_platform" = redox])
 AM_CONDITIONAL([HTOP_SOLARIS], [test "$my_htop_platform" = solaris])
 AM_CONDITIONAL([HTOP_PCP], [test "$my_htop_platform" = pcp])
 AM_CONDITIONAL([HTOP_UNSUPPORTED], [test "$my_htop_platform" = unsupported])

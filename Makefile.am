@@ -387,6 +387,29 @@ myhtopplatheaders = $(darwin_platform_headers)
 myhtopplatsources = $(darwin_platform_sources)
 endif
 
+# Redox
+# -----------
+
+redox_platform_headers = \
+	generic/gettime.h \
+	redox/Platform.h \
+	redox/ProcessField.h \
+	redox/RedoxMachine.h \
+	redox/RedoxProcess.h \
+	redox/RedoxProcessTable.h
+
+redox_platform_sources = \
+	generic/gettime.c \
+	redox/Platform.c \
+	redox/RedoxMachine.c \
+	redox/RedoxProcess.c \
+	redox/RedoxProcessTable.c
+
+if HTOP_REDOX
+myhtopplatsources = $(redox_platform_sources)
+myhtopplatheaders = $(redox_platform_headers)
+endif
+
 # Solaris
 # -------
 
