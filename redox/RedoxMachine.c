@@ -1,6 +1,7 @@
 /*
 htop - RedoxMachine.c
 (C) 2014 Hisham H. Muhammad
+(C) 2025 Wildan Mubarok
 Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
@@ -11,12 +12,11 @@ in the source distribution for its full text.
 
 #include <stdlib.h>
 #include <string.h>
-
 #include "Machine.h"
 
-
-static void RedoxMachine_updateCPUcount(RedoxMachine* this) {
-   Machine* super = &this->super;
+static void RedoxMachine_updateCPUcount(RedoxMachine *this)
+{
+   Machine *super = &this->super;
    long int s;
    bool change = false;
 
@@ -24,14 +24,19 @@ static void RedoxMachine_updateCPUcount(RedoxMachine* this) {
    if (s < 1)
       CRT_fatalError("Cannot get existing CPU count by sysconf(_SC_NPROCESSORS_CONF)");
 
-   if (s != super->existingCPUs) {
-      if (s == 1) {
+   if (s != super->existingCPUs)
+   {
+      if (s == 1)
+      {
          this->cpus = xRealloc(this->cpus, sizeof(CPUData));
          this->cpus[0].online = true;
-      } else {
+      }
+      else
+      {
          this->cpus = xReallocArray(this->cpus, s + 1, sizeof(CPUData));
          this->cpus[0].online = true; /* average is always "online" */
-         for (int i = 1; i < s + 1; i++) {
+         for (int i = 1; i < s + 1; i++)
+         {
             this->cpus[i].online = false;
          }
       }
@@ -44,19 +49,33 @@ static void RedoxMachine_updateCPUcount(RedoxMachine* this) {
    if (s < 1)
       CRT_fatalError("Cannot get active CPU count by sysconf(_SC_NPROCESSORS_ONLN)");
 
-   if (s != super->activeCPUs) {
+   if (s != super->activeCPUs)
+   {
       change = true;
       super->activeCPUs = s;
    }
 
-   if (change) {
+   if (change)
+   {
       // TODO
    }
 }
 
-Machine* Machine_new(UsersTable* usersTable, uid_t userId) {
-   RedoxMachine* this = xCalloc(1, sizeof(RedoxMachine));
-   Machine* super = &this->super;
+static void RedoxMachine_scanMemoryInfo(RedoxMachine *this)
+{
+   Machine *super = &this->super;
+   super->totalMem = sysconf(_SC_PHYS_PAGES) * this->pageSizeKb;
+   super->buffersMem = 0;
+   super->cachedMem = 0;
+   super->usedMem = super->totalMem - (sysconf(_SC_AVPHYS_PAGES) * this->pageSizeKb);
+   super->sharedMem = 0;
+   super->availableMem = 0;
+}
+
+Machine *Machine_new(UsersTable *usersTable, uid_t userId)
+{
+   RedoxMachine *this = xCalloc(1, sizeof(RedoxMachine));
+   Machine *super = &this->super;
 
    Machine_init(super, usersTable, userId);
 
@@ -70,33 +89,31 @@ Machine* Machine_new(UsersTable* usersTable, uid_t userId) {
    return super;
 }
 
-void Machine_delete(Machine* super) {
-   RedoxMachine* this = (RedoxMachine*) super;
+void Machine_delete(Machine *super)
+{
+   RedoxMachine *this = (RedoxMachine *)super;
    Machine_done(super);
    free(this);
 }
 
-bool Machine_isCPUonline(const Machine* host, unsigned int id) {
+bool Machine_isCPUonline(const Machine *host, unsigned int id)
+{
    assert(id < host->existingCPUs);
 
-   (void) host; (void) id;
+   (void)host;
+   (void)id;
 
    return true;
 }
 
-void Machine_scan(Machine* super) {
-   RedoxMachine* this = (RedoxMachine*) super;
-
-   super->totalMem = 0;
-   super->usedMem = 0;
-   super->buffersMem = 0;
-   super->cachedMem = 0;
-   super->sharedMem = 0;
-   super->availableMem = 0;
+void Machine_scan(Machine *super)
+{
+   RedoxMachine *this = (RedoxMachine *)super;
 
    super->totalSwap = 0;
    super->usedSwap = 0;
    super->cachedSwap = 0;
 
    RedoxMachine_updateCPUcount(this);
+   RedoxMachine_scanMemoryInfo(this);
 }

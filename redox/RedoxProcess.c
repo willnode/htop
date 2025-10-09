@@ -1,6 +1,7 @@
 /*
 htop - RedoxProcess.c
 (C) 2015 Hisham H. Muhammad
+(C) 2025 Wildan Mubarok
 Released under the GNU GPLv2+, see the COPYING file
 in the source distribution for its full text.
 */
@@ -13,7 +14,6 @@ in the source distribution for its full text.
 
 #include "CRT.h"
 #include "Process.h"
-
 
 const ProcessFieldData Process_fields[LAST_PROCESSFIELD] = {
    [0] = { .name = "", .title = NULL, .description = NULL, .flags = 0, },

@@ -880,6 +880,7 @@ static bool Process_setPriority(Process* this, int priority) {
    if (Settings_isReadonly())
       return false;
 
+#ifndef __redox__
    int old_prio = getpriority(PRIO_PROCESS, Process_getPid(this));
    int err = setpriority(PRIO_PROCESS, Process_getPid(this), priority);
 
@@ -887,6 +888,9 @@ static bool Process_setPriority(Process* this, int priority) {
       this->nice = priority;
    }
    return (err == 0);
+#else
+   return true;
+#endif
 }
 
 bool Process_rowChangePriorityBy(Row* super, Arg delta) {

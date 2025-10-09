@@ -10,19 +10,17 @@ in the source distribution for its full text.
 #include "Machine.h"
 #include "Process.h"
 
-
-typedef struct RedoxProcess_ {
+typedef struct RedoxProcess_
+{
    Process super;
-
-   /* Add platform specific fields */
+   unsigned long long int last_time;
 } RedoxProcess;
-
 
 extern const ProcessFieldData Process_fields[LAST_PROCESSFIELD];
 
-Process* RedoxProcess_new(const Machine* host);
+Process *RedoxProcess_new(const Machine *host);
 
-void Process_delete(Object* cast);
+void Process_delete(Object *cast);
 
 extern const ProcessClass RedoxProcess_class;
 

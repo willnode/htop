@@ -119,7 +119,9 @@ double Platform_setCPUValues(Meter* this, unsigned int cpu) {
 }
 
 void Platform_setMemoryValues(Meter* this) {
-   (void) this;
+   const Machine* host = this->host;
+   this->total = host->totalMem;
+   this->values[MEMORY_METER_USED] = host->usedMem;
 }
 
 void Platform_setSwapValues(Meter* this) {
