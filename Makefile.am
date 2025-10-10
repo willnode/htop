@@ -400,6 +400,8 @@ redox_platform_headers = \
 
 redox_platform_sources = \
 	generic/gettime.c \
+	generic/hostname.c \
+	generic/uname.c \
 	redox/Platform.c \
 	redox/RedoxMachine.c \
 	redox/RedoxProcess.c \

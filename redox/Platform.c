@@ -26,6 +26,7 @@ in the source distribution for its full text.
 #include "SysArchMeter.h"
 #include "TasksMeter.h"
 #include "UptimeMeter.h"
+#include "redox/RedoxMachine.h"
 
 
 const ScreenDefaults Platform_defaultScreens[] = {
@@ -76,8 +77,6 @@ const MeterClass* const Platform_meterTypes[] = {
    NULL
 };
 
-static const char Platform_redox[] = "redox";
-
 bool Platform_init(void) {
    /* no platform-specific setup needed */
    return true;
@@ -93,6 +92,9 @@ void Platform_setBindings(Htop_Action* keys) {
 }
 
 int Platform_getUptime(void) {
+   struct timespec ts;
+   if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
+      return ts.tv_sec;
    return 0;
 }
 
@@ -107,15 +109,31 @@ pid_t Platform_getMaxPid(void) {
 }
 
 double Platform_setCPUValues(Meter* this, unsigned int cpu) {
-   (void) cpu;
+   const Machine* host = this->host;
+   const RedoxMachine* rhost = (const RedoxMachine*) host;
+   unsigned int cpus = host->activeCPUs;
+   const CPUData* cpuData;
 
+   if (cpus == 1) {
+      cpuData = &(rhost->cpus[0]);
+   } else {
+      cpuData = &(rhost->cpus[cpu]);
+   }
+
+   double  percent;
    double* v = this->values;
+
+   v[CPU_METER_NICE]   = 0;//cpuData->nicePercent;
+   v[CPU_METER_NORMAL] = cpuData->userPercent;
+   v[CPU_METER_KERNEL] = 0;//cpuData->systemAllPercent;
    v[CPU_METER_FREQUENCY] = NAN;
    v[CPU_METER_TEMPERATURE] = NAN;
+   this->curItems = 3;
+   
+   percent = sumPositiveValues(v, this->curItems);
+   percent = MINIMUM(percent, 100.0);
 
-   this->curItems = 1;
-
-   return 0.0;
+   return percent;
 }
 
 void Platform_setMemoryValues(Meter* this) {
@@ -124,8 +142,9 @@ void Platform_setMemoryValues(Meter* this) {
    this->values[MEMORY_METER_USED] = host->usedMem;
 }
 
-void Platform_setSwapValues(Meter* this) {
-   (void) this;
+void Platform_setSwapValues(Meter* mtr) {
+   mtr->total = 0;
+   mtr->values[SWAP_METER_USED] = 0;
 }
 
 char* Platform_getProcessEnv(pid_t pid) {
@@ -156,12 +175,4 @@ bool Platform_getNetworkIO(NetworkIOData* data) {
 void Platform_getBattery(double* percent, ACPresence* isOnAC) {
    *percent = NAN;
    *isOnAC = AC_ERROR;
-}
-
-void Platform_getHostname(char* buffer, size_t size) {
-   String_safeStrncpy(buffer, Platform_redox, size);
-}
-
-void Platform_getRelease(char** string) {
-   *string = xStrdup(Platform_redox);
 }

@@ -19,8 +19,10 @@ in the source distribution for its full text.
 #include "ProcessLocksScreen.h"
 #include "SignalsPanel.h"
 #include "CommandLine.h"
-#include "generic/gettime.h"
 #include "redox/RedoxProcess.h"
+#include "generic/hostname.h"
+#include "generic/gettime.h"
+#include "generic/uname.h"
 
 
 extern const ScreenDefaults Platform_defaultScreens[];
@@ -63,9 +65,13 @@ bool Platform_getNetworkIO(NetworkIOData* data);
 
 void Platform_getBattery(double* percent, ACPresence* isOnAC);
 
-void Platform_getHostname(char* buffer, size_t size);
+static inline void Platform_getHostname(char* buffer, size_t size) {
+   Generic_hostname(buffer, size);
+}
 
-void Platform_getRelease(char** string);
+static inline void Platform_getRelease(char** string) {
+   *string = Generic_uname();
+}
 
 static inline const char* Platform_getFailedState(void) {
    return NULL;

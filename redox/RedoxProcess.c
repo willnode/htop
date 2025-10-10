@@ -47,12 +47,15 @@ const ProcessFieldData Process_fields[LAST_PROCESSFIELD] = {
 Process* RedoxProcess_new(const Machine* host) {
    Process* this = xCalloc(1, sizeof(RedoxProcess));
    Object_setClass(this, Class(RedoxProcess));
+   // assume cpus never change
+   ((RedoxProcess*)this)->time_cpus = xCalloc(host->activeCPUs, sizeof(unsigned long long));
    Process_init(this, host);
    return this;
 }
 
 void Process_delete(Object* cast) {
    Process* super = (Process*) cast;
+   free(((RedoxProcess*)super)->time_cpus);
    Process_done(super);
    // free platform-specific fields here
    free(cast);

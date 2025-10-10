@@ -13,7 +13,10 @@ in the source distribution for its full text.
 typedef struct RedoxProcess_
 {
    Process super;
-   unsigned long long int last_time;
+   unsigned long long last_time; // in hundreth
+   unsigned long long *time_cpus; // in hundreth
+   uint64_t last_update_duration; // in msec
+   uint64_t last_update; // in msec
 } RedoxProcess;
 
 extern const ProcessFieldData Process_fields[LAST_PROCESSFIELD];
