@@ -47,27 +47,43 @@ static unsigned long parse_redox_time(const char *time_str)
 
 static unsigned long parse_redox_mem(const char *value_str, const char *unit_str)
 {
-   unsigned long value = atol(value_str);
+   double value = atof(value_str);
    if (strcmp(unit_str, "MB") == 0) {
-      return value * 1024;
+      return (unsigned long)(value * 1024.0);
    }
    if (strcmp(unit_str, "GB") == 0) {
-      return value * 1024 * 1024;
+      // 1024 * 1024
+      return (unsigned long)(value * 1048576.0);
    }
-   // Assume KB if not specified or "KB"
-   return value;
+   if (strcmp(unit_str, "KB") == 0) {
+      return (unsigned long)(value);
+   }
+
+   return 1;
 }
 
 static char map_redox_state(const char *state_str)
 {
-   // What these are means?
-   return RUNNING;
+   if (!state_str) {
+      return UNKNOWN;
+   }
+
+   if (strchr(state_str, '+') != NULL) {
+      return RUNNING;
+   }
+
+   return RUNNABLE;
 }
 
 void ProcessTable_goThroughEntries(ProcessTable *super)
 {
-   FILE *file = fopen("/scheme/sys/context", "r");
-   if (!file) {
+   FILE *context_file = fopen("/scheme/sys/context", "r");
+   if (!context_file) {
+      return;
+   }
+
+   FILE *stat_file = fopen("/scheme/sys/stat", "r");
+   if (!stat_file) {
       return;
    }
 
@@ -75,28 +91,64 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
    size_t len = 0;
    float memFactor = 100.f / (float)(sysconf(_SC_PHYS_PAGES) * 4);
 
-   getline(&line, &len, file);
+   getline(&line, &len, context_file);
    int last_pid = -1;
    uint64_t msec = 0;
    Generic_gettime_monotonic(&msec);
    RedoxMachine *m = (RedoxMachine *)super->super.host;
-   for (size_t i = 0; i < m->super.activeCPUs; i++)
-   {
-      m->cpus[i].idlePercent = 0.;
-      m->cpus[i].systemPercent = 0.;
-      m->cpus[i].systemAllPercent = 0.;
-      m->cpus[i].nicePercent = 0.;
-      m->cpus[i].userPercent = 0.;
+
+   while (getline(&line, &len, stat_file) != -1) {
+      uint64_t user, nice, kernel, idle, irq;
+      int cpu_id;
+
+      if (strncmp(line, "cpu", 3) == 0 && line[3] >= '0' && line[3] <= '9') {
+         if (sscanf(line, "cpu%d %llu %llu %llu %llu %llu", &cpu_id, &user, &nice, &kernel, &idle, &irq) == 6) {
+            if (cpu_id < (int)m->super.activeCPUs) {
+               CPUData* cpu = &m->cpus[cpu_id];
+
+               uint64_t du = user   - cpu->luser;
+               uint64_t dn = nice   - cpu->lnice;
+               uint64_t dk = kernel - cpu->lkrnl;
+               // irq is in number of times instead of ms
+               // uint64_t di = irq    - cpu->lintr;
+               uint64_t dl = idle   - cpu->lidle;
+               uint64_t total = du + dn + dk + dl; // + di
+               if (total > 0) {
+                  double invTotal = 100.0 / (double)total;
+                  cpu->userPercent   = du * invTotal;
+                  cpu->nicePercent   = dn * invTotal;
+                  cpu->systemPercent = dk * invTotal;
+                  cpu->irqPercent    = 0;// di * invTotal;
+                  cpu->idlePercent   = dl * invTotal;
+                  
+                  cpu->systemAllPercent = cpu->systemPercent;
+               } else {
+                  cpu->userPercent = cpu->nicePercent = cpu->systemPercent = 
+                  cpu->irqPercent = cpu->systemAllPercent = 0.0;
+                  cpu->idlePercent = 100.0;
+               }
+
+               cpu->luser = user;
+               cpu->lnice = nice;
+               cpu->lkrnl = kernel;
+               cpu->lintr = irq;
+               cpu->lidle = idle;
+               cpu->online = true;
+            }
+         }
+      }
+      
+      if (strncmp(line, "IRQs", 4) == 0) break;
    }
 
-   while (getline(&line, &len, file) != -1) {
-      int pid, euid, egid, ens, cpu_num;
+   while (getline(&line, &len, context_file) != -1) {
+      int pid, euid, egid, cpu_num;
       char stat[16], time_str[32], mem_val[16], mem_unit[8], name[256];
 
-      int items = sscanf(line, "%d %d %d %d %15s #%d %31s %15s %7s %255s[^\n]",
-                     &pid, &euid, &egid, &ens, stat, &cpu_num, time_str, mem_val, mem_unit, name);
+      int items = sscanf(line, "%d %d %d %15s #%d %31s %15s %7s %255s[^\n]",
+                     &pid, &euid, &egid, stat, &cpu_num, time_str, mem_val, mem_unit, name);
 
-      if (items < 10) {
+      if (items < 9) {
          continue;
       }
 
@@ -118,22 +170,19 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
          proc->nlwp = 0;
 
          proc->m_resident = parse_redox_mem(mem_val, mem_unit);
-         proc->m_virt = proc->m_resident;
+         proc->m_virt = proc->m_resident; // no swap
+         proc->percent_mem = ((float)proc->m_resident) * memFactor;
+      } else if (pid == 0) {
+         // the memory is accumulative for kernel pid
+         proc->m_resident = parse_redox_mem(mem_val, mem_unit);
+         proc->m_virt = proc->m_resident; // no swap
          proc->percent_mem = ((float)proc->m_resident) * memFactor;
       }
+
       proc->time += parsed_time;
       long long delta_time = ((long long)proc->time) - ((long long)rproc->last_time);
       if (delta_time > 0 && rproc->last_time != 0) {
          proc->percent_cpu = (float)delta_time / ((float)rproc->last_update_duration * 0.001f); // already in hundredth
-      }
-      // FIXME: shouldn't be possible if parsed_time <= rproc->time_cpus[cpu_num] but it does happens
-      if (parsed_time > rproc->time_cpus[cpu_num] && rproc->last_update_duration != 0) {
-         double cpuPercentage = ((double)(parsed_time - rproc->time_cpus[cpu_num])) / ((double)rproc->last_update_duration * 0.001);
-         if (pid > 0) {
-            m->cpus[cpu_num].userPercent += cpuPercentage;  // already in hundredth
-         } else {
-            m->cpus[cpu_num].systemPercent += cpuPercentage;
-         }
       }
 
       rproc->time_cpus[cpu_num] = parsed_time;
@@ -160,7 +209,7 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
             trimmed_name++;
 
          if (pid == 0)
-            proc->isKernelThread = true;
+            proc->isKernelThread = !strchr(stat, 'U');
 
          Process_updateComm(proc, trimmed_name);
          Process_updateExe(proc, trimmed_name);
@@ -178,5 +227,6 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
    }
 
    free(line);
-   fclose(file);
+   fclose(context_file);
+   fclose(stat_file);
 }

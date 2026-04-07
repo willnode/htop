@@ -17,6 +17,7 @@ typedef struct CPUData_ {
    double idlePercent;
    double systemAllPercent;
    double frequency;
+   uint64_t lnice;
    uint64_t luser;
    uint64_t lkrnl;
    uint64_t lintr;

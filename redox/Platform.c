@@ -117,19 +117,19 @@ double Platform_setCPUValues(Meter* this, unsigned int cpu) {
    if (cpus == 1) {
       cpuData = &(rhost->cpus[0]);
    } else {
-      cpuData = &(rhost->cpus[cpu]);
+      cpuData = &(rhost->cpus[cpu - 1]);
    }
 
    double  percent;
    double* v = this->values;
 
-   v[CPU_METER_NICE]   = 0;//cpuData->nicePercent;
+   v[CPU_METER_NICE]   = cpuData->nicePercent;
    v[CPU_METER_NORMAL] = cpuData->userPercent;
-   v[CPU_METER_KERNEL] = 0;//cpuData->systemAllPercent;
+   v[CPU_METER_KERNEL] = cpuData->systemAllPercent;
    v[CPU_METER_FREQUENCY] = NAN;
    v[CPU_METER_TEMPERATURE] = NAN;
    this->curItems = 3;
-   
+
    percent = sumPositiveValues(v, this->curItems);
    percent = MINIMUM(percent, 100.0);
 
