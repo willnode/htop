@@ -14,6 +14,7 @@ typedef struct RedoxProcess_
 {
    Process super;
    unsigned long long last_time; // in hundreth
+   int last_nthread;
    unsigned long long *time_cpus; // in hundreth
    uint64_t last_update_duration; // in msec
    uint64_t last_update; // in msec

@@ -72,6 +72,18 @@ static char map_redox_state(const char *state_str)
       return RUNNING;
    }
 
+   if (strchr(state_str, 'S') != NULL) {
+      return BLOCKED;
+   }
+
+   if (strchr(state_str, 'B') != NULL) {
+      return SLEEPING;
+   }
+
+   if (strchr(state_str, 'Z') != NULL) {
+      return ZOMBIE;
+   }
+
    return RUNNABLE;
 }
 
@@ -102,7 +114,7 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
       int cpu_id;
 
       if (strncmp(line, "cpu", 3) == 0 && line[3] >= '0' && line[3] <= '9') {
-         if (sscanf(line, "cpu%d %llu %llu %llu %llu %llu", &cpu_id, &user, &nice, &kernel, &idle, &irq) == 6) {
+         if (sscanf(line, "cpu%d %lu %lu %lu %lu %lu", &cpu_id, &user, &nice, &kernel, &idle, &irq) == 6) {
             if (cpu_id < (int)m->super.activeCPUs) {
                CPUData* cpu = &m->cpus[cpu_id];
 
@@ -162,34 +174,55 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
       if (pid != last_pid) {
          // count reset
          rproc->last_time = proc->time;
+         rproc->last_nthread = proc->nlwp;
          if (rproc->last_update != 0) {
             rproc->last_update_duration = msec - rproc->last_update;
          }
          rproc->last_update = msec;
          proc->time = 0;
          proc->nlwp = 0;
+         proc->state = UNKNOWN;
 
          proc->m_resident = parse_redox_mem(mem_val, mem_unit);
          proc->m_virt = proc->m_resident; // no swap
          proc->percent_mem = ((float)proc->m_resident) * memFactor;
       } else if (pid == 0) {
          // the memory is accumulative for kernel pid
-         proc->m_resident = parse_redox_mem(mem_val, mem_unit);
-         proc->m_virt = proc->m_resident; // no swap
-         proc->percent_mem = ((float)proc->m_resident) * memFactor;
+         proc->m_resident += parse_redox_mem(mem_val, mem_unit);
+         proc->m_virt += proc->m_resident; // no swap
+         proc->percent_mem += ((float)proc->m_resident) * memFactor;
       }
 
       proc->time += parsed_time;
+      proc->nlwp++;
       long long delta_time = ((long long)proc->time) - ((long long)rproc->last_time);
-      if (delta_time > 0 && rproc->last_time != 0) {
+      if (delta_time >= 0 && rproc->last_time != 0 && proc->nlwp == rproc->last_nthread) {
          proc->percent_cpu = (float)delta_time / ((float)rproc->last_update_duration * 0.001f); // already in hundredth
+         if (pid == 0) {
+            // decrease idle time taken in kernel
+            for (size_t i = 0; i < m->super.activeCPUs; i++)
+            {
+               CPUData* cpu = &m->cpus[i];
+               proc->percent_cpu -= cpu->idlePercent / ((double)rproc->last_update_duration * 0.001f);
+            }
+         }
+         Process_updateCPUFieldWidths(proc->percent_cpu);
       }
 
       rproc->time_cpus[cpu_num] = parsed_time;
+      // init kernel service should be a separate pid really
+      if (pid != 0 || !strchr(stat, 'U')) {
+         char state = map_redox_state(stat);
+         proc->state = (state > proc->state) ? state : proc->state;
+         // assume idling if kernel is active
+         if (state == RUNNING && pid != 0) {
+            super->runningTasks++;
+         }
+      }
+      super->totalTasks++;
+      proc->processor = (cpu_num > proc->processor) ? cpu_num : proc->processor;
+     
 
-      proc->nlwp++;
-
-      proc->processor = cpu_num;
       last_pid = pid;
 
       if (!preExisting) {
@@ -202,14 +235,14 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
          pws = getpwuid(euid);
          proc->user = strdup(pws->pw_name);
 
-         proc->state = map_redox_state(stat);
-
          char *trimmed_name = name;
          while (isspace((unsigned char)*trimmed_name))
             trimmed_name++;
 
          if (pid == 0)
-            proc->isKernelThread = !strchr(stat, 'U');
+            // this is partially incorrect. 
+            // some kernel services can be in userspace, but this wrongly on the same PID
+            proc->isKernelThread = true; // !strchr(stat, 'U')
 
          Process_updateComm(proc, trimmed_name);
          Process_updateExe(proc, trimmed_name);
