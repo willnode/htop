@@ -40,7 +40,40 @@ const ScreenDefaults Platform_defaultScreens[] = {
 const unsigned int Platform_numberOfDefaultScreens = ARRAYSIZE(Platform_defaultScreens);
 
 const SignalItem Platform_signals[] = {
-   { .name = " 0 Cancel",    .number =  0 },
+   { .name = " 0 Cancel",    .number = 0 },
+   { .name = " 1 SIGHUP",    .number = 1 },
+   { .name = " 2 SIGINT",    .number = 2 },
+   { .name = " 3 SIGQUIT",   .number = 3 },
+   { .name = " 4 SIGILL",    .number = 4 },
+   { .name = " 5 SIGTRAP",   .number = 5 },
+   { .name = " 6 SIGABRT",   .number = 6 },
+   { .name = " 6 SIGIOT",    .number = 6 },
+   { .name = " 7 SIGBUS",    .number = 7 },
+   { .name = " 8 SIGFPE",    .number = 8 },
+   { .name = " 9 SIGKILL",   .number = 9 },
+   { .name = "10 SIGUSR1",   .number = 10 },
+   { .name = "11 SIGSEGV",   .number = 11 },
+   { .name = "12 SIGUSR2",   .number = 12 },
+   { .name = "13 SIGPIPE",   .number = 13 },
+   { .name = "14 SIGALRM",   .number = 14 },
+   { .name = "15 SIGTERM",   .number = 15 },
+   { .name = "16 SIGSTKFLT", .number = 16 },
+   { .name = "17 SIGCHLD",   .number = 17 },
+   { .name = "18 SIGCONT",   .number = 18 },
+   { .name = "19 SIGSTOP",   .number = 19 },
+   { .name = "20 SIGTSTP",   .number = 20 },
+   { .name = "21 SIGTTIN",   .number = 21 },
+   { .name = "22 SIGTTOU",   .number = 22 },
+   { .name = "23 SIGURG",    .number = 23 },
+   { .name = "24 SIGXCPU",   .number = 24 },
+   { .name = "25 SIGXFSZ",   .number = 25 },
+   { .name = "26 SIGVTALRM", .number = 26 },
+   { .name = "27 SIGPROF",   .number = 27 },
+   { .name = "28 SIGWINCH",  .number = 28 },
+   { .name = "29 SIGIO",     .number = 29 },
+   { .name = "29 SIGPOLL",   .number = 29 },
+   { .name = "30 SIGPWR",    .number = 30 },
+   { .name = "31 SIGSYS",    .number = 31 },
 };
 
 const unsigned int Platform_numberOfSignals = ARRAYSIZE(Platform_signals);
@@ -99,9 +132,9 @@ int Platform_getUptime(void) {
 }
 
 void Platform_getLoadAverage(double* one, double* five, double* fifteen) {
-   *one = 0;
-   *five = 0;
-   *fifteen = 0;
+   *one = NAN;
+   *five = NAN;
+   *fifteen = NAN;
 }
 
 pid_t Platform_getMaxPid(void) {
