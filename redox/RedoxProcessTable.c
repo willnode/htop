@@ -155,12 +155,13 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
 
    while (getline(&line, &len, context_file) != -1) {
       int pid, euid, egid, cpu_num;
+      unsigned int affinity;
       char stat[16], time_str[32], mem_val[16], mem_unit[8], name[256];
 
-      int items = sscanf(line, "%d %d %d %15s #%d %31s %15s %7s %255s[^\n]",
-                     &pid, &euid, &egid, stat, &cpu_num, time_str, mem_val, mem_unit, name);
+      int items = sscanf(line, "%d %d %d %15s #%d %x %31s %15s %7s %255s[^\n]",
+                     &pid, &euid, &egid, stat, &cpu_num, &affinity, time_str, mem_val, mem_unit, name);
 
-      if (items < 9) {
+      if (items < 10) {
          continue;
       }
 
@@ -198,15 +199,10 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
       long long delta_time = ((long long)proc->time) - ((long long)rproc->last_time);
       if (delta_time >= 0 && rproc->last_time != 0 && proc->nlwp == rproc->last_nthread) {
          proc->percent_cpu = (float)delta_time / ((float)rproc->last_update_duration * 0.001f); // already in hundredth
-         if (pid == 0) {
-            // decrease idle time taken in kernel
-            for (size_t i = 0; i < m->super.activeCPUs; i++)
-            {
-               CPUData* cpu = &m->cpus[i];
-               proc->percent_cpu -= cpu->idlePercent / ((double)rproc->last_update_duration * 0.001f);
-            }
-         }
          Process_updateCPUFieldWidths(proc->percent_cpu);
+      } else {
+         // This is accurate to count userland thread, but we don't know which is one is.
+         super->userlandThreads++;
       }
 
       rproc->time_cpus[cpu_num] = parsed_time;
@@ -218,10 +214,15 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
          if (state == RUNNING && pid != 0) {
             super->runningTasks++;
          }
+         if (pid == 0) {
+            super->kernelThreads++;
+         }
+      } else {
+         // the init kernel is running in userspace
+         super->userlandThreads++;
       }
       super->totalTasks++;
       proc->processor = (cpu_num > proc->processor) ? cpu_num : proc->processor;
-     
 
       last_pid = pid;
 
