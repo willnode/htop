@@ -156,10 +156,10 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
    while (getline(&line, &len, context_file) != -1) {
       int pid, euid, egid, cpu_num;
       unsigned int affinity;
-      char stat[16], time_str[32], mem_val[16], mem_unit[8], name[256];
+      char stat[16], time_str[32], priv_val[16], priv_unit[8], shrd_val[16], shrd_unit[8], name[256];
 
-      int items = sscanf(line, "%d %d %d %15s #%d %x %31s %15s %7s %255s[^\n]",
-                     &pid, &euid, &egid, stat, &cpu_num, &affinity, time_str, mem_val, mem_unit, name);
+      int items = sscanf(line, "%d %d %d %15s #%d %x %31s %15s %7s %15s %7s %255s[^\n]",
+                     &pid, &euid, &egid, stat, &cpu_num, &affinity, time_str, priv_val, priv_unit, shrd_val, shrd_unit, name);
 
       if (items < 10) {
          continue;
@@ -184,13 +184,13 @@ void ProcessTable_goThroughEntries(ProcessTable *super)
          proc->nlwp = 0;
          proc->state = UNKNOWN;
 
-         proc->m_resident = parse_redox_mem(mem_val, mem_unit);
-         proc->m_virt = proc->m_resident; // no swap
+         proc->m_resident = parse_redox_mem(priv_val, priv_unit);
+         proc->m_virt = proc->m_resident + parse_redox_mem(shrd_val, shrd_unit);
          proc->percent_mem = ((float)proc->m_resident) * memFactor;
       } else if (pid == 0) {
          // the memory is accumulative for kernel pid
-         proc->m_resident += parse_redox_mem(mem_val, mem_unit);
-         proc->m_virt += proc->m_resident; // no swap
+         proc->m_resident += parse_redox_mem(priv_val, priv_unit);
+         proc->m_virt += proc->m_resident + parse_redox_mem(shrd_val, shrd_unit);
          proc->percent_mem += ((float)proc->m_resident) * memFactor;
       }
 
